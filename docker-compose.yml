@@ -1,0 +1,56 @@
+version: '3.1'
+
+services:
+  db:
+    container_name: postgres
+    image: postgres
+    restart: always
+    environment:
+      POSTGRES_USER: usr_stefanini
+      POSTGRES_PASSWORD: usr_stefanini
+    ports:
+      - '5432:5432'
+    volumes:
+      - ./docker/postgres/data:/var/lib/postgres/data
+      - ./docker/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: rabbitmq
+    volumes:
+      - ./docker/rabbitmq/etc/:/etc/rabbitmq/
+      - ./docker/rabbitmq/data/:/var/lib/data/
+      - ./docker/rabbitmq/logs/:/var/log/rabbitmq/
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    ports:
+      - '5672:5672'
+      - '15672:15672'
+
+  vote-session:
+    container_name: vote-session
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: vote-session:latest
+    depends_on:
+      - db
+      - rabbitmq
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/db_vote_session
+      SPRING_DATASOURCE_USERNAME: usr_stefanini
+      SPRING_DATASOURCE_PASSWORD: usr_stefanini
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      ORG_JOBRUNR_BACKGROUND-JOB-SERVER_ENABLED: true
+      ORG_JOBRUNR_DASHBOARD_ENABLED: true
+      VOTE_IN_SESSION_USER_INFO_URL: https://user-info.herokuapp.com/
+      VOTE_IN_SESSION_VOTING_MARGIN: 30
+      VOTE_SESSION_VOTING_QUEUE_NAME: result-session
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_USERNAME: guest
+      SPRING_RABBITMIQ_PASSWORD: guest
+    ports:
+      - '8080:8080'
+      - '8000:8000'
